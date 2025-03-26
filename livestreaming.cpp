@@ -22,7 +22,10 @@ void handle_client(int client_socket, cv::VideoCapture& cap) {
 
     while (true) {
         cap >> frame;
-        if (frame.empty()) break;
+        if (frame.empty()) {
+            std::cerr << "⚠️ Empty frame captured. Stopping stream." << std::endl;
+            break;
+        }
 
         buffer.clear();
         std::vector<int> param = {cv::IMWRITE_JPEG_QUALITY, 80};
@@ -37,7 +40,6 @@ void handle_client(int client_socket, cv::VideoCapture& cap) {
         send(client_socket, buffer.data(), buffer.size(), 0);
         send(client_socket, "\r\n", 2, 0);
 
-        // Small delay
         usleep(50000);  // ~20 FPS
     }
 
@@ -45,9 +47,10 @@ void handle_client(int client_socket, cv::VideoCapture& cap) {
 }
 
 int main() {
-    cv::VideoCapture cap(0); // 0 = default camera
+    // Explicitly use V4L2 backend with the Pi camera
+    cv::VideoCapture cap("/dev/video0", cv::CAP_V4L2);
     if (!cap.isOpened()) {
-        std::cerr << "❌ Could not open camera" << std::endl;
+        std::cerr << "❌ Could not open /dev/video0 using V4L2" << std::endl;
         return -1;
     }
 
