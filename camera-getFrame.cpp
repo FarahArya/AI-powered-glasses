@@ -8,24 +8,30 @@ int main()
 {
     std::cout << "Starting camera...\n";
 
-    // Explicitly use gstreamer backend for Raspberry Pi camera
-    std::string camera_pipeline =
-        "libcamerasrc ! video/x-raw,width=640,height=480,framerate=30/1 ! "
-        "videoconvert ! appsink";
-
-    cv::VideoCapture cap(camera_pipeline, cv::CAP_GSTREAMER);
+    // Use 0 for default camera with libcamera backend
+    cv::VideoCapture cap(0, cv::CAP_V4L2);
 
     if (!cap.isOpened())
     {
         std::cerr << "Error: Cannot open camera!\n";
-        std::cerr << "Ensure libcamera and gstreamer are properly installed.\n";
         return -1;
     }
 
-    std::cout << "Camera opened successfully!\n";
+    // Configure camera settings
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+
+    // Additional configuration attempts
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+    cap.set(cv::CAP_PROP_FPS, 30);
 
     // Give the camera time to warm up
     std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    std::cout << "Camera opened successfully!\n";
+    std::cout << "Resolution: "
+              << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
+              << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << "\n";
 
     cv::Mat frame;
     int frameCount = 0;
@@ -33,12 +39,17 @@ int main()
 
     while (true)
     {
-        // Capture frame
-        cap >> frame;
-
-        if (frame.empty())
+        // Attempt to grab and retrieve frame
+        if (!cap.grab())
         {
-            std::cerr << "Warning: Captured empty frame!\n";
+            std::cerr << "Failed to grab frame\n";
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+
+        if (!cap.retrieve(frame) || frame.empty())
+        {
+            std::cerr << "Failed to retrieve frame\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -64,7 +75,7 @@ int main()
         }
 
         // Exit condition
-        int key = cv::waitKey(100);
+        int key = cv::waitKey(1);
         if (key == 'q' || key == 27) // 'q' or ESC key
         {
             break;
