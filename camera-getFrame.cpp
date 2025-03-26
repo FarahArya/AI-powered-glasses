@@ -8,30 +8,25 @@ int main()
 {
     std::cout << "Starting camera...\n";
 
-    // Use V4L2 backend for Raspberry Pi camera
-    cv::VideoCapture cap(0, cv::CAP_V4L2);
+    // Use explicit GStreamer pipeline with libcamera
+    std::string pipeline =
+        "libcamerasrc ! "
+        "video/x-raw,width=640,height=480,format=BGR ! "
+        "videoconvert ! appsink";
+
+    cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
+
     if (!cap.isOpened())
     {
         std::cerr << "Error: Cannot open camera!\n";
+        std::cerr << "Ensure libcamera and gstreamer are properly installed.\n";
         return -1;
     }
 
-    // Configure camera settings
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    std::cout << "Camera opened successfully!\n";
 
-    // Set additional properties to improve frame capture
-    cap.set(cv::CAP_PROP_BUFFERSIZE, 3);    // Reduce internal buffer to minimize stale frames
-    cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 1); // Manual exposure
-    cap.set(cv::CAP_PROP_EXPOSURE, 500);    // Adjust exposure time
-
-    // Give the camera time to stabilize
+    // Give the camera time to warm up
     std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    // Verify camera settings
-    std::cout << "Resolution set to "
-              << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x"
-              << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << "\n";
 
     cv::Mat frame;
     int frameCount = 0;
@@ -39,20 +34,11 @@ int main()
 
     while (true)
     {
-        // Clear previous frame
-        frame = cv::Mat();
-
-        // Discard any stale frames in the buffer
-        for (int i = 0; i < 3; ++i)
-        {
-            cap.grab();
-        }
-
-        // Retrieve a fresh frame
-        if (!cap.retrieve(frame) || frame.empty())
+        // Capture frame
+        if (!cap.read(frame) || frame.empty())
         {
             std::cerr << "Warning: Failed to capture frame!\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
 
@@ -77,7 +63,7 @@ int main()
         }
 
         // Exit condition
-        int key = cv::waitKey(100);
+        int key = cv::waitKey(1);
         if (key == 'q' || key == 27) // 'q' or ESC key
         {
             break;
