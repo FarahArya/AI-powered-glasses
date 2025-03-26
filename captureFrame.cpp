@@ -19,16 +19,16 @@ int main()
 
     if (!cap.isOpened())
     {
-        std::cerr << "❌ Error: Unable to open camera via GStreamer.\n";
+        std::cerr << "Error: Unable to open camera via GStreamer.\n";
         return -1;
     }
 
-    std::cout << "✅ Camera opened successfully.\n";
+    std::cout << "Camera opened successfully.\n";
 
     std::filesystem::create_directories("frames");
 
     int frameCount = 0;
-    const auto captureInterval = std::chrono::milliseconds(500);
+    const auto captureInterval = std::chrono::milliseconds(2000);
     cv::Mat frame;
 
     auto lastCapture = std::chrono::steady_clock::now();
@@ -39,7 +39,7 @@ int main()
 
         if (frame.empty())
         {
-            std::cerr << "⚠️ Warning: Empty frame captured.\n";
+            std::cerr << "Warning: Empty frame captured.\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -50,7 +50,7 @@ int main()
             std::ostringstream filename;
             filename << "frames/frame_" << std::setw(4) << std::setfill('0') << frameCount << ".jpg";
             cv::imwrite(filename.str(), frame);
-            std::cout << "💾 Saved " << filename.str() << "\n";
+            std::cout << "Saved " << filename.str() << "\n";
 
             lastCapture = now;
             ++frameCount;
@@ -63,6 +63,6 @@ int main()
     }
 
     cap.release();
-    std::cout << "✅ Exiting...\n";
+    std::cout << "Exiting...\n";
     return 0;
 }
