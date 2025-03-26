@@ -25,6 +25,7 @@ fi
 echo "Starting MJPG-Streamer server on port 8081..."
 MJPG_DIR="/home/pi/mjpg-streamer/mjpg-streamer-experimental"   # adjust this path to where mjpg_streamer is built
 cd "$MJPG_DIR" || { echo "Failed to find mjpg_streamer directory at $MJPG_DIR"; kill $CAMERA_PID; exit 1; }
+
 # Run mjpg_streamer with input_uvc (reading the FIFO) and output_http (serving on 8081)
 /home/pi/mjpg-streamer/mjpg-streamer-experimental/mjpg_streamer -i "input_uvc.so -f /tmp -n $(basename $STREAM_FIFO)" -o "output_http.so -p 8081 -w ./www" &  
 STREAMER_PID=$!
