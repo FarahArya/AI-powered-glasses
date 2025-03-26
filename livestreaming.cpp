@@ -1,95 +1,41 @@
-#include <opencv2/opencv.hpp>
 #include <iostream>
+#include <cstdlib>
 #include <thread>
-#include <vector>
-#include <string>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
+#include <chrono>
 
-#define PORT 8080
+// Function to run MJPG Streamer
+void runMjpgStreamer() {
+    std::cout << "Starting MJPG Streamer..." << std::endl;
+    std::system("./mjpg_streamer -i \"./input_file.so -f /tmp -n stream.mjpeg\" -o \"./output_http.so -w ./www -p 8081\"");
+}
 
-void handle_client(int client_socket, cv::VideoCapture& cap) {
-    const std::string header = 
-        "HTTP/1.1 200 OK\r\n"
-        "Server: MJPEGStreamer\r\n"
-        "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n\r\n";
+// Function to run PageKite for tunneling
+void runPageKite() {
+    std::cout << "Starting PageKite..." << std::endl;
+    std::system("pagekite 8081 glsses.beesscamera.pagekite.me");
+}
 
-    send(client_socket, header.c_str(), header.size(), 0);
+// Function to ensure MJPG Streamer is running before starting PageKite
+void startStreamAndTunnel() {
+    std::cout << "Running MJPG Streamer and PageKite..." << std::endl;
 
-    cv::Mat frame;
-    std::vector<uchar> buffer;
+    // Run MJPG Streamer
+    std::thread mjpgThread(runMjpgStreamer);
 
-    while (true) {
-        cap >> frame;
-        if (frame.empty()) {
-            std::cerr << "⚠️ Empty frame captured. Stopping stream." << std::endl;
-            break;
-        }
+    // Wait for the streamer to initialize
+    std::this_thread::sleep_for(std::chrono::seconds(5)); // Give MJPG Streamer time to start
 
-        buffer.clear();
-        std::vector<int> param = {cv::IMWRITE_JPEG_QUALITY, 80};
-        cv::imencode(".jpg", frame, buffer, param);
+    // Run PageKite
+    std::thread pageKiteThread(runPageKite);
 
-        std::string part_header = 
-            "--frame\r\n"
-            "Content-Type: image/jpeg\r\n"
-            "Content-Length: " + std::to_string(buffer.size()) + "\r\n\r\n";
+    // Wait for both threads to complete
+    mjpgThread.join();
+    pageKiteThread.join();
 
-        send(client_socket, part_header.c_str(), part_header.size(), 0);
-        send(client_socket, buffer.data(), buffer.size(), 0);
-        send(client_socket, "\r\n", 2, 0);
-
-        usleep(50000);  // ~20 FPS
-    }
-
-    close(client_socket);
+    std::cout << "MJPG Streamer and PageKite are running." << std::endl;
 }
 
 int main() {
-    // Explicitly use V4L2 backend with the Pi camera
-    cv::VideoCapture cap("/dev/video0", cv::CAP_V4L2);
-    if (!cap.isOpened()) {
-        std::cerr << "❌ Could not open /dev/video0 using V4L2" << std::endl;
-        return -1;
-    }
-
-    int server_fd, new_socket;
-    struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == 0) {
-        perror("❌ Socket failed");
-        exit(EXIT_FAILURE);
-    }
-
-    int opt = 1;
-    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-    
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-    
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("❌ Bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(server_fd, 5) < 0) {
-        perror("❌ Listen failed");
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "🚀 MJPEG Stream started on http://localhost:" << PORT << std::endl;
-
-    while (true) {
-        new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen);
-        if (new_socket >= 0) {
-            std::thread(handle_client, new_socket, std::ref(cap)).detach();
-        }
-    }
-
-    cap.release();
+    startStreamAndTunnel();
     return 0;
 }
