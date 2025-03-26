@@ -1,76 +1,50 @@
-#include <opencv2/opencv.hpp>
+#include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <chrono>
 #include <thread>
 #include <iomanip>
+#include <filesystem>
 
 int main()
 {
-    std::cout << "Starting camera...\n";
+    std::cout << "Starting capture loop using libcamera-still...\n";
 
-    // Use explicit GStreamer pipeline with libcamera
-    std::string pipeline =
-        "libcamerasrc ! "
-        "video/x-raw,width=640,height=480,format=BGR ! "
-        "videoconvert ! appsink";
-
-    cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
-
-    if (!cap.isOpened())
-    {
-        std::cerr << "Error: Cannot open camera!\n";
-        std::cerr << "Ensure libcamera and gstreamer are properly installed.\n";
-        return -1;
-    }
-
-    std::cout << "Camera opened successfully!\n";
-
-    // Give the camera time to warm up
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    cv::Mat frame;
     int frameCount = 0;
-    auto lastCaptureTime = std::chrono::steady_clock::now();
+    const int intervalSeconds = 0.5;
+
+    std::string outputDir = "/home/pi/frames"; // Adjust as needed
+    std::filesystem::create_directories(outputDir);
 
     while (true)
     {
-        // Capture frame
-        if (!cap.read(frame) || frame.empty())
+        // Build the filename
+        std::ostringstream filename;
+        filename << outputDir << "/frame_"
+                 << std::setw(4) << std::setfill('0') << frameCount
+                 << ".jpg";
+
+        // Construct and execute libcamera-still command
+        std::ostringstream command;
+        command << "libcamera-still --width 640 --height 480 "
+                << "--nopreview -o " << filename.str();
+
+        int result = std::system(command.str().c_str());
+
+        if (result == 0)
         {
-            std::cerr << "Warning: Failed to capture frame!\n";
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
+            std::cout << "Captured " << filename.str() << "\n";
+        }
+        else
+        {
+            std::cerr << "Failed to capture image with libcamera-still\n";
         }
 
-        // Check if 2 seconds have passed since last capture
-        auto now = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - lastCaptureTime);
+        ++frameCount;
 
-        if (duration.count() >= 2)
-        {
-            // Generate filename with zero-padded frame number
-            std::ostringstream filename;
-            filename << "frame_" << std::setw(4) << std::setfill('0') << frameCount << ".jpg";
-
-            // Save the frame
-            cv::imwrite(filename.str(), frame);
-
-            std::cout << "Saved " << filename.str() << "\n";
-
-            // Update last capture time
-            lastCaptureTime = now;
-            frameCount++;
-        }
-
-        // Exit condition
-        int key = cv::waitKey(1);
-        if (key == 'q' || key == 27) // 'q' or ESC key
-        {
-            break;
-        }
+        // Wait for next frame
+        std::this_thread::sleep_for(std::chrono::seconds(intervalSeconds));
     }
 
-    std::cout << "Exiting...\n";
-    cap.release();
     return 0;
 }
