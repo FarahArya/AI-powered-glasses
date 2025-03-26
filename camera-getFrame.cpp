@@ -11,7 +11,7 @@ int main()
     std::cout << "Starting capture loop using libcamera-still...\n";
 
     int frameCount = 0;
-    const int intervalSeconds = 2;
+    const int intervalSeconds = 0.5;
 
     std::string outputDir = "/home/pi/frames"; // Adjust as needed
     std::filesystem::create_directories(outputDir);
