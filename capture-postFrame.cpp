@@ -38,6 +38,8 @@ bool sendImageToServer(const std::string &imagePath, const std::string &serverUr
     curl_easy_setopt(curl, CURLOPT_URL, serverUrl.c_str());
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
 
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // timeout after 5 seconds
+
     CURLcode res = curl_easy_perform(curl);
     bool success = (res == CURLE_OK);
 
