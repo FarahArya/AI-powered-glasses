@@ -89,7 +89,9 @@ int main()
 
     while (true)
     {
-        cap >> frame;
+        for (int i = 0; i < 5; ++i)
+            cap.grab();  // flush old frames
+        cap.read(frame); // get the freshest one
 
         if (frame.empty())
         {
@@ -102,7 +104,9 @@ int main()
         if (now - lastCapture >= captureInterval)
         {
             std::ostringstream filename;
-            filename << "frames/frame_" << std::setw(4) << std::setfill('0') << frameCount << ".jpg";
+            auto now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            filename << "frames/frame_" << std::put_time(std::localtime(&now_time), "%Y-%m-%d_%H-%M-%S") << ".jpg";
+
             cv::imwrite(filename.str(), frame);
             std::cout << "Saved " << filename.str() << "\n";
 
