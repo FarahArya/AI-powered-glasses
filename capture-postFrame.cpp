@@ -33,7 +33,7 @@ bool sendImageToServer(const std::string &imagePath, const std::string &serverUr
     curl_mime *form = curl_mime_init(curl);
     curl_mimepart *field = curl_mime_addpart(form);
     curl_mime_name(field, "file");
-    curl_mime_filedata(field, imagePath.c_str());
+    curl_mime_filedata(field, @imagePath.c_str());
 
     curl_easy_setopt(curl, CURLOPT_URL, serverUrl.c_str());
     curl_easy_setopt(curl, CURLOPT_MIMEPOST, form);
